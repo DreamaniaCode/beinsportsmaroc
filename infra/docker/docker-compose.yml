@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app_pass
+      POSTGRES_DB: bsm_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    networks:
+      - bsm_network
+
+  backend:
+    build: ../../backend
+    env_file:
+      - .env
+    ports:
+      - "4000:4000"
+    depends_on:
+      - db
+    networks:
+      - bsm_network
+    environment:
+      - DATABASE_URL=postgresql://app:app_pass@db:5432/bsm_db
+      - PORT=4000
+
+  frontend:
+    build: ../../frontend
+    environment:
+      - NEXT_PUBLIC_API_BASE=http://localhost:4000
+      - NEXT_PUBLIC_WS_URL=ws://localhost:4000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    networks:
+      - bsm_network
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - bsm_network
+
+volumes:
+  db_data:
+
+networks:
+  bsm_network:
+    driver: bridge
